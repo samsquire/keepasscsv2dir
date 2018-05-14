@@ -1,0 +1,27 @@
+#!/usr/bin/env python
+import csv, re, sys, os
+from os import path
+from argparse import ArgumentParser
+parser = ArgumentParser(description="Converts Keepass CSV files into a directory. In Keepass, you must put a filename=name (such as filename=environment.database.secret) into each password Notes field you want extracting.")
+parser.add_argument("-f", "--keepass-csv-file", default="secrets.csv")
+parser.add_argument("-C", "--output-directory", default=os.getcwd())
+parser.add_argument("-n", "--dry-run", action="store_true", default=False)
+args = parser.parse_args()
+base_dir = args.output_directory
+pattern = re.compile("\w?filename\=([a-zA-Z\./]*)\w?")
+with open(args.keepass_csv_file) as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        if not row["Notes"]:
+            continue
+        notes = row["Notes"]
+        result = pattern.search(notes)
+        if not result:
+            continue
+        secret_file_name = result.group(1)
+        print("{1}\t{0}".format(secret_file_name, row["Title"]))
+        if args.dry_run:
+            continue
+        with open(path.join(base_dir, secret_file_name), 'w') as secret_file:
+            secret_file.write(row["Password"])
+
