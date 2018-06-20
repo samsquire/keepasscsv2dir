@@ -8,20 +8,34 @@ parser.add_argument("-C", "--output-directory", default=os.getcwd())
 parser.add_argument("-n", "--dry-run", action="store_true", default=False)
 args = parser.parse_args()
 base_dir = args.output_directory
-pattern = re.compile("\w?filename\=([a-zA-Z\./]*)\w?")
+print("> {}".format(base_dir))
+pattern = re.compile("\w?filename\=([a-zA-Z\./-_]*)\w?")
+reported = {}
 with open(args.keepass_csv_file) as f:
     reader = csv.DictReader(f)
     for row in reader:
         if not row["Notes"]:
             continue
         notes = row["Notes"]
-        result = pattern.search(notes)
-        if not result:
+        all_results = re.finditer(pattern, notes)
+        if not all_results:
             continue
-        secret_file_name = result.group(1)
-        print("{1}\t{0}".format(secret_file_name, row["Title"]))
-        if args.dry_run:
-            continue
-        with open(path.join(base_dir, secret_file_name), 'w') as secret_file:
-            secret_file.write(row["Password"])
+        for result in all_results:
+            secret_file_name = result.group(1)
+            print("  Importing {: <40} {: <40}".format("\"{}\"".format(row["Title"]), secret_file_name))
+            secret_path = path.join(base_dir, secret_file_name)
+            dirname = os.path.dirname(secret_path)
+
+            if not os.path.isdir(dirname):
+                if not reported.get(dirname, False):
+                    print("\t Creating secret subdirectory {}".format(dirname))
+                    reported[dirname] = True
+                if not args.dry_run:
+                    os.makedirs(dirname)
+
+            if args.dry_run:
+                continue
+
+            with open(secret_path, 'w') as secret_file:
+                secret_file.write(row["Password"])
 
