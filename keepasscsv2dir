@@ -6,10 +6,20 @@ parser = ArgumentParser(description="Converts Keepass CSV files into a directory
 parser.add_argument("-f", "--keepass-csv-file", default="secrets.csv")
 parser.add_argument("-C", "--output-directory", default=os.getcwd())
 parser.add_argument("-n", "--dry-run", action="store_true", default=False)
+parser.add_argument("-m", "--match")
+parser.add_argument("--delete", action="store_true")
 args = parser.parse_args()
 base_dir = args.output_directory
 print("> {}".format(base_dir))
 pattern = re.compile("\w?filename\=([a-zA-Z\./-_]*)\w?")
+
+match = None
+if args.match:
+  match = re.compile(args.match)
+  if not match:
+    print("Match regex is invalid")
+    sys.exit(1)
+
 reported = {}
 with open(args.keepass_csv_file) as f:
     reader = csv.DictReader(f)
@@ -22,7 +32,15 @@ with open(args.keepass_csv_file) as f:
             continue
         for result in all_results:
             secret_file_name = result.group(1)
-            print("  Importing {: <40} {: <40}".format("\"{}\"".format(row["Title"]), secret_file_name))
+            if not match:
+              print("  Importing {: <40} {: <40}".format("\"{}\"".format(row["Title"]), secret_file_name))
+            else:
+              secret_match = re.search(match, secret_file_name)
+              if secret_match:
+                print("  Importing {: <40} {: <40}".format("\"{}\"".format(row["Title"]), secret_file_name))
+              else:
+                print("  Ignoring {: <40} {: <40}".format("\"{}\"".format(row["Title"]), secret_file_name))
+                continue
             secret_path = path.join(base_dir, secret_file_name)
             dirname = os.path.dirname(secret_path)
 
@@ -39,3 +57,7 @@ with open(args.keepass_csv_file) as f:
             with open(secret_path, 'w') as secret_file:
                 secret_file.write(row["Password"])
 
+
+if args.delete:
+  print("Deleting {}".format(args.keepass_csv_file))
+  os.remove(args.keepass_csv_file)
